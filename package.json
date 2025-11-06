@@ -1,0 +1,61 @@
+{
+  "name": "client-resize-video",
+  "version": "0.0.1",
+  "description": "A high-quality video resize library for browser with fast FFmpeg processing and HLS/m3u8 support",
+  "main": "dist/index.js",
+  "module": "dist/index.js",
+  "browser": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/theanh-it/resize-video.git"
+  },
+  "homepage": "https://github.com/theanh-it/resize-video#readme",
+  "bugs": {
+    "url": "https://github.com/theanh-it/resize-video/issues"
+  },
+  "author": {
+    "name": "The Anh",
+    "email": "theanhit.com@gmail.com",
+    "url": "https://github.com/theanh-it"
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "bun build ./src/index.ts --outdir ./dist --target browser --format esm --external @ffmpeg/ffmpeg --external @ffmpeg/util && cp ./src/index.d.ts ./dist/",
+    "test": "bun test",
+    "test:watch": "bun test --watch"
+  },
+  "keywords": [
+    "video",
+    "resize",
+    "compress",
+    "resize-video",
+    "video-resize",
+    "browser",
+    "hls",
+    "m3u8"
+  ],
+  "license": "MIT",
+  "devDependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1",
+    "@types/bun": "latest",
+    "happy-dom": "^20.0.10",
+    "typescript": "^5.8.3"
+  },
+  "peerDependencies": {
+    "@ffmpeg/ffmpeg": "^0.12.10",
+    "@ffmpeg/util": "^0.12.1"
+  },
+  "peerDependenciesMeta": {
+    "@ffmpeg/ffmpeg": {
+      "optional": true
+    },
+    "@ffmpeg/util": {
+      "optional": true
+    }
+  }
+}

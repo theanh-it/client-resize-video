@@ -1,0 +1,22 @@
+# Source files
+src/
+demo/
+
+# Config files
+tsconfig.json
+.gitignore
+.npmignore
+vite.config.ts
+
+# Development files
+node_modules/
+*.log
+.DS_Store
+bun.lock
+
+# Tests
+*.test.ts
+
+# Documentation (keep only essentials)
+PERFORMANCE.md
+
