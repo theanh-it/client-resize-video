@@ -1,6 +1,6 @@
 {
   "name": "client-resize-video",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "A high-quality video resize library for browser with fast FFmpeg processing and HLS/m3u8 support",
   "main": "dist/index.js",
   "module": "dist/index.js",
@@ -9,11 +9,11 @@
   "type": "module",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/theanh-it/resize-video.git"
+    "url": "git+https://github.com/theanh-it/client-resize-video.git"
   },
-  "homepage": "https://github.com/theanh-it/resize-video#readme",
+  "homepage": "https://github.com/theanh-it/client-resize-video#readme",
   "bugs": {
-    "url": "https://github.com/theanh-it/resize-video/issues"
+    "url": "https://github.com/theanh-it/client-resize-video/issues"
   },
   "author": {
     "name": "The Anh",
