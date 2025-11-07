@@ -2,9 +2,17 @@
 
 All notable changes to this project will be documented in this file.
 
-## [0.0.3] - 2025-11-04
+## [0.0.3] - 2025-11-07
 
 ### Added
+- 🚀 **Multi-Quality HLS** (Adaptive Bitrate Streaming) support
+- `resizeVideoToMultiQualityHLS()` function to create multiple quality levels from a single video
+- `downloadMultiQualityHLSAsZip()` helper function to package multi-quality HLS output
+- `HLS_QUALITY_PRESETS` with predefined quality configurations (MOBILE, HD, FULL)
+- `QualityLevel` type for defining custom quality levels
+- `MultiQualityHLSOutput` type with master playlist and quality variants
+- Master playlist generation for HLS adaptive streaming
+- Support for custom quality definitions (resolution, bitrate, etc.)
 - ⚡ **Fast Resize** using FFmpeg.wasm - 2-5x faster than MediaRecorder!
 - `fastResizeVideo()` function for fast video processing
 - `fastResizeVideos()` function for batch fast processing
@@ -25,6 +33,9 @@ All notable changes to this project will be documented in this file.
 ### Changed
 - Improved logging with emojis and structured output
 - Video objectUrl now kept until processing completes
+- Added comprehensive documentation for multi-quality HLS in README
+- Added Vietnamese documentation for multi-quality HLS
+- Updated type definitions with new HLS types
 - Added PERFORMANCE.md comparison guide
 - Added DEBUG_GUIDE.md for troubleshooting
 - Added LOGS_EXPLANATION.md for log interpretation

@@ -23,6 +23,8 @@ export type ResizeVideoOptions = {
   mimeType?: MimeType;
   videoBitrate?: number;
   audioBitrate?: number;
+  fps?: number;
+  playbackSpeed?: number;
   output?: OutputType;
   onProgress?: (progress: number) => void;
 };
@@ -54,6 +56,26 @@ export type HLSOutput = {
   playlistContent: string;
 };
 
+export type QualityLevel = {
+  name: string;
+  width?: number;
+  height?: number;
+  videoBitrate: number;
+  audioBitrate?: number;
+};
+
+export type MultiQualityHLSOutput = {
+  masterPlaylist: File;
+  masterPlaylistBlob: Blob;
+  masterPlaylistContent: string;
+  qualities: Array<{
+    level: QualityLevel;
+    playlist: File;
+    segments: File[];
+    playlistContent: string;
+  }>;
+};
+
 export declare function resizeVideoToHLS(
   video: File,
   options?: HLSOptions
@@ -64,10 +86,30 @@ export declare function resizeVideosToHLS(
   options?: HLSOptions
 ): Promise<HLSOutput[]>;
 
+export declare function resizeVideoToMultiQualityHLS(
+  file: File,
+  qualityLevels: QualityLevel[],
+  options?: {
+    segmentDuration?: number;
+    onProgress?: (progress: number) => void;
+  }
+): Promise<MultiQualityHLSOutput>;
+
+export const HLS_QUALITY_PRESETS: {
+  MOBILE: QualityLevel[];
+  HD: QualityLevel[];
+  FULL: QualityLevel[];
+};
+
 export declare function createHLSBlobURL(hlsOutput: HLSOutput): string;
 
 export declare function downloadHLSAsZip(
   hlsOutput: HLSOutput,
+  filename?: string
+): Promise<void>;
+
+export declare function downloadMultiQualityHLSAsZip(
+  hlsOutput: MultiQualityHLSOutput,
   filename?: string
 ): Promise<void>;
 

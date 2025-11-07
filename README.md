@@ -1,10 +1,10 @@
-# resize-video
+# client-resize-video
 
-[![npm version](https://img.shields.io/npm/v/resize-video.svg)](https://www.npmjs.com/package/resize-video)
-[![npm downloads](https://img.shields.io/npm/dm/resize-video.svg)](https://www.npmjs.com/package/resize-video)
-[![license](https://img.shields.io/npm/l/resize-video.svg)](https://github.com/theanh-it/resize-video/blob/main/LICENSE)
+[![npm version](https://img.shields.io/npm/v/client-resize-video.svg)](https://www.npmjs.com/package/client-resize-video)
+[![npm downloads](https://img.shields.io/npm/dm/client-resize-video.svg)](https://www.npmjs.com/package/client-resize-video)
+[![license](https://img.shields.io/npm/l/client-resize-video.svg)](https://github.com/theanh-it/client-resize-video/blob/main/LICENSE)
 
-**Version: 0.0.1**
+**Version: 0.0.3**
 
 **[English](#) | [Tiếng Việt](./README.vi.md)**
 
@@ -28,25 +28,25 @@ A high-quality video resize and compression library for browser using Canvas API
 ### Basic Installation (WebM/MP4)
 
 ```bash
-npm install resize-video
+npm install client-resize-video
 ```
 
 ### Installation with HLS/m3u8 support
 
 ```bash
-npm install resize-video @ffmpeg/ffmpeg @ffmpeg/util
+npm install client-resize-video @ffmpeg/ffmpeg @ffmpeg/util
 ```
 
 or with yarn:
 
 ```bash
-yarn add resize-video @ffmpeg/ffmpeg @ffmpeg/util
+yarn add client-resize-video @ffmpeg/ffmpeg @ffmpeg/util
 ```
 
 or with bun:
 
 ```bash
-bun add resize-video @ffmpeg/ffmpeg @ffmpeg/util
+bun add client-resize-video @ffmpeg/ffmpeg @ffmpeg/util
 ```
 
 **Note:** `@ffmpeg/ffmpeg` (~31MB) is only required if you want to use HLS/m3u8 features.
@@ -56,7 +56,7 @@ bun add resize-video @ffmpeg/ffmpeg @ffmpeg/util
 ### Basic Usage
 
 ```typescript
-import { resizeVideo, MIME_TYPE } from "resize-video";
+import { resizeVideo, MIME_TYPE } from "client-resize-video";
 
 const file = /* File from input[type="file"] */;
 
@@ -125,7 +125,7 @@ const resized = await resizeVideo(file, {
 ### Output as Base64
 
 ```typescript
-import { OUTPUT_TYPE } from "resize-video";
+import { OUTPUT_TYPE } from "client-resize-video";
 
 const base64 = await resizeVideo(file, {
   width: 1280,
@@ -159,7 +159,7 @@ const resized = await resizeVideo(file, {
 ### Batch Processing
 
 ```typescript
-import { resizeVideos } from "resize-video";
+import { resizeVideos } from "client-resize-video";
 
 const files = /* File[] from input[type="file"] multiple */;
 
@@ -178,7 +178,7 @@ console.log(resized); // File[]
 ### 🎉 Resize to HLS/m3u8 (New!)
 
 ```typescript
-import { resizeVideoToHLS, downloadHLSAsZip } from "resize-video";
+import { resizeVideoToHLS, downloadHLSAsZip } from "client-resize-video";
 
 const file = /* File from input[type="file"] */;
 
@@ -202,13 +202,104 @@ console.log(hlsOutput.playlistContent); // m3u8 content
 await downloadHLSAsZip(hlsOutput, "my-video");
 ```
 
+### 🚀 Multi-Quality HLS (Adaptive Bitrate Streaming)
+
+Create multiple quality levels from a single video for adaptive streaming:
+
+```typescript
+import {
+  resizeVideoToMultiQualityHLS,
+  downloadMultiQualityHLSAsZip,
+  HLS_QUALITY_PRESETS,
+} from "client-resize-video";
+
+const file = /* File from input[type="file"] */;
+
+// Option 1: Use predefined quality presets
+const hlsOutput = await resizeVideoToMultiQualityHLS(
+  file,
+  HLS_QUALITY_PRESETS.HD, // or MOBILE, FULL
+  {
+    segmentDuration: 10,
+    onProgress: (progress) => {
+      console.log(`Progress: ${progress}%`);
+    },
+  }
+);
+
+// Option 2: Define custom quality levels
+const customQualities = [
+  {
+    name: "360p",
+    width: 640,
+    height: 360,
+    videoBitrate: 800000, // 800 kbps
+    audioBitrate: 96000, // 96 kbps
+  },
+  {
+    name: "720p",
+    width: 1280,
+    height: 720,
+    videoBitrate: 2800000, // 2.8 Mbps
+    audioBitrate: 128000, // 128 kbps
+  },
+  {
+    name: "1080p",
+    width: 1920,
+    height: 1080,
+    videoBitrate: 5000000, // 5 Mbps
+    audioBitrate: 192000, // 192 kbps
+  },
+];
+
+const customHLSOutput = await resizeVideoToMultiQualityHLS(file, customQualities, {
+  segmentDuration: 10,
+  onProgress: (progress) => console.log(`Progress: ${progress}%`),
+});
+
+// Output structure
+console.log(hlsOutput.masterPlaylist); // master.m3u8 file
+console.log(hlsOutput.qualities); // Array of quality objects
+// Each quality contains: { level, playlist, segments, playlistContent }
+
+// Download complete multi-quality HLS as ZIP
+await downloadMultiQualityHLSAsZip(hlsOutput, "my-video-adaptive");
+
+// ZIP structure:
+// ├── master.m3u8
+// ├── 360p/
+// │   ├── playlist.m3u8
+// │   ├── segment_000.ts
+// │   ├── segment_001.ts
+// │   └── ...
+// ├── 720p/
+// │   ├── playlist.m3u8
+// │   └── ...
+// └── 1080p/
+//     ├── playlist.m3u8
+//     └── ...
+```
+
+**Available Quality Presets:**
+
+```typescript
+// Mobile-friendly (360p, 480p)
+HLS_QUALITY_PRESETS.MOBILE;
+
+// Standard HD (360p, 480p, 720p)
+HLS_QUALITY_PRESETS.HD;
+
+// Full quality (360p, 480p, 720p, 1080p)
+HLS_QUALITY_PRESETS.FULL;
+```
+
 ### Using HLS output with HLS.js player
 
 ```html
 <video id="video" controls></video>
 <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <script type="module">
-  import { resizeVideoToHLS } from "resize-video";
+  import { resizeVideoToHLS } from "client-resize-video";
 
   const file = /* File */;
   const hlsOutput = await resizeVideoToHLS(file, { width: 1280 });
@@ -299,7 +390,7 @@ isMimeTypeSupported("video/webm"); // true/false
 <video id="preview" controls></video>
 
 <script type="module">
-  import { resizeVideo, OUTPUT_TYPE } from "resize-video";
+  import { resizeVideo, OUTPUT_TYPE } from "client-resize-video";
 
   document.getElementById("upload").addEventListener("change", async (e) => {
     const file = e.target.files[0];
@@ -318,7 +409,7 @@ isMimeTypeSupported("video/webm"); // true/false
 ### Example 2: Compress Video Before Upload
 
 ```javascript
-import { resizeVideo, MIME_TYPE } from "resize-video";
+import { resizeVideo, MIME_TYPE } from "client-resize-video";
 
 async function uploadVideo(file) {
   // Compress video before upload to reduce bandwidth
@@ -345,7 +436,7 @@ async function uploadVideo(file) {
 ### Example 3: Create Video Thumbnails
 
 ```javascript
-import { resizeVideo, OUTPUT_TYPE } from "resize-video";
+import { resizeVideo, OUTPUT_TYPE } from "client-resize-video";
 
 async function createThumbnail(videoFile) {
   // Create small version for thumbnail
@@ -425,7 +516,7 @@ If you really need HLS output, here are some options:
 **Check supported formats:**
 
 ```typescript
-import { isMimeTypeSupported, MIME_TYPE } from "resize-video";
+import { isMimeTypeSupported, MIME_TYPE } from "client-resize-video";
 
 // Check each format
 console.log("WebM VP9:", isMimeTypeSupported(MIME_TYPE.webm_vp9.mimeType));
@@ -455,7 +546,7 @@ import {
   type ResizeMode,
   MIME_TYPE,
   OUTPUT_TYPE,
-} from "resize-video";
+} from "client-resize-video";
 
 // Check if MIME type is supported
 if (isMimeTypeSupported(MIME_TYPE.webm_vp9.mimeType)) {
@@ -479,8 +570,8 @@ MIT
 
 ## Links
 
-- [GitHub](https://github.com/theanh-it/resize-video)
-- [NPM](https://www.npmjs.com/package/resize-video)
+- [GitHub](https://github.com/theanh-it/client-resize-video)
+- [NPM](https://www.npmjs.com/package/client-resize-video)
 
 ## Credits
 

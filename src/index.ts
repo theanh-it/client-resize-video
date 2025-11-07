@@ -211,6 +211,8 @@ export type ResizeVideoOptions = {
   mimeType?: MimeType;
   videoBitrate?: number; // in bps, default: 2.5Mbps
   audioBitrate?: number; // in bps, default: 128kbps
+  fps?: number; // frames per second, default: 30
+  playbackSpeed?: number; // playback speed for processing, default: 2.0
   output?: OutputType;
   onProgress?: (progress: number) => void;
 };
@@ -510,10 +512,15 @@ export const resizeVideos = async (
 export {
   resizeVideoToHLS,
   resizeVideosToHLS,
+  resizeVideoToMultiQualityHLS,
   createHLSBlobURL,
   downloadHLSAsZip,
+  downloadMultiQualityHLSAsZip,
+  HLS_QUALITY_PRESETS,
   type HLSOptions,
   type HLSOutput,
+  type QualityLevel,
+  type MultiQualityHLSOutput,
 } from "./hls";
 
 // Export fast resize functions (requires @ffmpeg/ffmpeg to be installed)
