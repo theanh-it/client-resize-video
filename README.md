@@ -4,7 +4,7 @@
 [![npm downloads](https://img.shields.io/npm/dm/client-resize-video.svg)](https://www.npmjs.com/package/client-resize-video)
 [![license](https://img.shields.io/npm/l/client-resize-video.svg)](https://github.com/theanh-it/client-resize-video/blob/main/LICENSE)
 
-**Version: 0.0.3**
+**Version: 0.0.4**
 
 **[English](#) | [Tiếng Việt](./README.vi.md)**
 
@@ -470,6 +470,7 @@ async function createThumbnail(videoFile) {
 **Video từ iPhone được hỗ trợ đầy đủ!**
 
 iPhone thường quay video với:
+
 - **Format**: MOV (QuickTime)
 - **Codec**: HEVC (H.265) trên iPhone 7+ hoặc H.264 trên iPhone cũ
 - **Resolution**: 720p, 1080p, 4K (tùy model)
@@ -477,6 +478,7 @@ iPhone thường quay video với:
 **Khuyến nghị cho video iPhone:**
 
 ✅ **Dùng FFmpeg methods** (khuyên dùng):
+
 ```typescript
 import { fastResizeVideo, resizeVideoToHLS, resizeVideoToMultiQualityHLS } from "client-resize-video";
 
@@ -491,13 +493,14 @@ const resized = await fastResizeVideo(iphoneVideo, {
 
 // Option 2: Multi-quality HLS (best for streaming)
 const hls = await resizeVideoToMultiQualityHLS(
-  iphoneVideo, 
+  iphoneVideo,
   HLS_QUALITY_PRESETS.HD,
   { parallel: true } // Faster processing
 );
 ```
 
 ⚠️ **MediaRecorder có giới hạn trên iOS Safari**:
+
 ```typescript
 // May not work properly on iOS Safari < 14.5
 const resized = await resizeVideo(iphoneVideo, {
@@ -506,6 +509,7 @@ const resized = await resizeVideo(iphoneVideo, {
 ```
 
 **Tóm tắt:**
+
 - ✅ **Input**: Mọi format iPhone (MOV, HEVC, H.264) đều OK
 - ✅ **FFmpeg methods**: Hoạt động hoàn hảo trên mọi iPhone/iPad
 - ⚠️ **MediaRecorder**: Hạn chế trên iOS Safari (khuyên dùng FFmpeg thay thế)
