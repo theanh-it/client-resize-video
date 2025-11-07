@@ -273,6 +273,65 @@ export const createHLSBlobURL = (hlsOutput: HLSOutput): string => {
 };
 
 /**
+ * Get video metadata (resolution, duration, etc.)
+ */
+const getVideoMetadata = (file: File): Promise<{
+  width: number;
+  height: number;
+  duration: number;
+}> => {
+  return new Promise((resolve, reject) => {
+    const video = document.createElement("video");
+    const objectUrl = URL.createObjectURL(file);
+
+    video.preload = "metadata";
+    video.muted = true;
+
+    video.onloadedmetadata = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve({
+        width: video.videoWidth,
+        height: video.videoHeight,
+        duration: video.duration,
+      });
+    };
+
+    video.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      reject(new Error("Failed to load video metadata"));
+    };
+
+    video.src = objectUrl;
+  });
+};
+
+/**
+ * Filter quality levels to avoid upscaling
+ * Only keep qualities that are equal or smaller than source video
+ */
+const filterQualityLevels = (
+  qualityLevels: QualityLevel[],
+  sourceWidth: number,
+  sourceHeight: number
+): QualityLevel[] => {
+  const filtered = qualityLevels.filter((level) => {
+    // If quality doesn't specify dimensions, keep it
+    if (!level.width && !level.height) {
+      return true;
+    }
+
+    // Check if quality is smaller or equal to source
+    const targetWidth = level.width || sourceWidth;
+    const targetHeight = level.height || sourceHeight;
+
+    // Keep quality only if both dimensions are smaller or equal
+    return targetWidth <= sourceWidth && targetHeight <= sourceHeight;
+  });
+
+  return filtered;
+};
+
+/**
  * Convert video to multiple quality levels for HLS Adaptive Bitrate Streaming
  * Creates a master playlist and multiple media playlists with different qualities
  */
@@ -282,6 +341,8 @@ export const resizeVideoToMultiQualityHLS = async (
   options?: {
     segmentDuration?: number; // in seconds, default: 10
     onProgress?: (progress: number) => void;
+    autoFilterQualities?: boolean; // default: true - automatically filter out qualities higher than source
+    parallel?: boolean; // default: false - process qualities in parallel (uses more memory)
   }
 ): Promise<MultiQualityHLSOutput> => {
   console.log(
@@ -292,25 +353,117 @@ export const resizeVideoToMultiQualityHLS = async (
     throw new Error("At least one quality level must be specified");
   }
 
-  const { fetchFile } = await loadFFmpegDependencies();
-  const ffmpeg = await getFFmpeg(options?.onProgress);
+  // Get video metadata
+  console.log("📊 Detecting video resolution...");
+  const metadata = await getVideoMetadata(file);
+  console.log(
+    `✅ Source video: ${metadata.width}x${metadata.height} (${metadata.duration.toFixed(1)}s)`
+  );
 
-  // Write input file
-  const inputName = "input.mp4";
-  await ffmpeg.writeFile(inputName, await fetchFile(file));
+  // Filter quality levels to avoid upscaling (unless disabled)
+  const autoFilter = options?.autoFilterQualities !== false; // default true
+  let filteredQualityLevels = qualityLevels;
 
-  const segmentDuration = options?.segmentDuration || 10;
-  const qualities: MultiQualityHLSOutput["qualities"] = [];
-
-  // Process each quality level
-  for (let i = 0; i < qualityLevels.length; i++) {
-    const level = qualityLevels[i];
-    console.log(
-      `Processing quality ${i + 1}/${qualityLevels.length}: ${level.name}`
+  if (autoFilter) {
+    filteredQualityLevels = filterQualityLevels(
+      qualityLevels,
+      metadata.width,
+      metadata.height
     );
 
-    const outputDir = level.name.toLowerCase().replace(/[^a-z0-9]/g, "_");
-    const outputName = `${outputDir}/playlist.m3u8`;
+    const removed = qualityLevels.length - filteredQualityLevels.length;
+    if (removed > 0) {
+      console.log(
+        `⚠️ Filtered out ${removed} quality level(s) higher than source resolution`
+      );
+      console.log("Removed qualities:", 
+        qualityLevels
+          .filter(q => !filteredQualityLevels.includes(q))
+          .map(q => `${q.name} (${q.width}x${q.height})`)
+          .join(", ")
+      );
+    }
+
+    if (filteredQualityLevels.length === 0) {
+      throw new Error(
+        `No suitable quality levels found for source resolution ${metadata.width}x${metadata.height}. ` +
+        `All specified qualities are higher than the source.`
+      );
+    }
+
+    console.log(
+      `✅ Using ${filteredQualityLevels.length} quality level(s):`,
+      filteredQualityLevels.map((q) => q.name).join(", ")
+    );
+  }
+
+  const { fetchFile, toBlobURL } = await loadFFmpegDependencies();
+  const segmentDuration = options?.segmentDuration || 10;
+  const useParallel = options?.parallel === true;
+
+  // Helper function to process a single quality
+  const processQuality = async (
+    level: QualityLevel,
+    index: number,
+    total: number,
+    progressTracker?: {
+      qualities: Map<number, number>;
+      onUpdate: () => void;
+    }
+  ): Promise<MultiQualityHLSOutput["qualities"][0]> => {
+    const startTime = Date.now();
+    console.log(`🔵 [${level.name}] Starting processing (${index + 1}/${total})`);
+
+    // Calculate progress range for this quality (each quality contributes equal share)
+    const progressRange = 100 / total;
+
+    // Create separate FFmpeg instance for parallel processing
+    const { FFmpeg } = await loadFFmpegDependencies();
+    const ffmpeg = new FFmpeg();
+
+    // Setup progress tracking for this quality
+    if (progressTracker) {
+      let lastLoggedProgress = 0;
+      ffmpeg.on("progress", ({ progress }: any) => {
+        // progress is 0-1, calculate this quality's contribution to overall progress
+        const qualityContribution = progress * progressRange;
+        progressTracker.qualities.set(index, qualityContribution);
+        progressTracker.onUpdate();
+        
+        // Log progress every 10% for this quality
+        const currentPercent = Math.floor(progress * 100);
+        if (currentPercent - lastLoggedProgress >= 10) {
+          console.log(`  📊 [${level.name}] ${currentPercent}% (Contributing: ${qualityContribution.toFixed(1)}% to overall)`);
+          lastLoggedProgress = currentPercent;
+        }
+      });
+    }
+
+    // Load FFmpeg for this instance
+    console.log(`⏳ [${level.name}] Loading FFmpeg.wasm...`);
+    const baseURL = "https://unpkg.com/@ffmpeg/core@0.12.6/dist/esm";
+    
+    try {
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(
+          `${baseURL}/ffmpeg-core.wasm`,
+          "application/wasm"
+        ),
+      });
+      console.log(`✅ [${level.name}] FFmpeg loaded successfully`);
+    } catch (error) {
+      console.error(`❌ [${level.name}] Failed to load FFmpeg:`, error);
+      throw error;
+    }
+
+    // Write input file
+    const inputName = `input_${level.name}.mp4`;
+    await ffmpeg.writeFile(inputName, await fetchFile(file));
+
+    const qualityPrefix = level.name.toLowerCase().replace(/[^a-z0-9]/g, "_");
+    const outputName = `playlist_${qualityPrefix}.m3u8`;
+    const segmentPattern = `segment_${qualityPrefix}_%03d.ts`;
 
     const videoBitrate = `${Math.round(level.videoBitrate / 1000)}k`;
     const audioBitrate = level.audioBitrate
@@ -352,7 +505,7 @@ export const resizeVideoToMultiQualityHLS = async (
       "-hls_playlist_type",
       "vod",
       "-hls_segment_filename",
-      `${outputDir}/segment_%03d.ts`,
+      segmentPattern,
       outputName
     );
 
@@ -367,25 +520,21 @@ export const resizeVideoToMultiQualityHLS = async (
 
     // Parse segment filenames
     const segmentMatches = playlistContent.matchAll(
-      new RegExp(`${outputDir}/segment_\\d+\\.ts`, "g")
+      new RegExp(`segment_${qualityPrefix}_\\d+\\.ts`, "g")
     );
     const segmentNames = Array.from(
       new Set(Array.from(segmentMatches, (m) => m[0]))
     );
 
-    console.log(`Quality ${level.name}: Found ${segmentNames.length} segments`);
+    console.log(`✅ [${level.name}] Found ${segmentNames.length} segments`);
 
     // Read all segments
     const segments: File[] = [];
     for (const segmentName of segmentNames) {
       const segmentData = await ffmpeg.readFile(segmentName);
-      const segmentFile = new File(
-        [segmentData],
-        segmentName.split("/").pop()!,
-        {
-          type: "video/mp2t",
-        }
-      );
+      const segmentFile = new File([segmentData], segmentName, {
+        type: "video/mp2t",
+      });
       segments.push(segmentFile);
     }
 
@@ -401,18 +550,124 @@ export const resizeVideoToMultiQualityHLS = async (
       }
     );
 
-    qualities.push({
+    // Cleanup this FFmpeg instance
+    try {
+      await ffmpeg.deleteFile(inputName);
+      await ffmpeg.deleteFile(outputName);
+      for (const segmentName of segmentNames) {
+        await ffmpeg.deleteFile(segmentName);
+      }
+    } catch (e) {
+      console.warn(`⚠️ [${level.name}] Failed to cleanup:`, e);
+    }
+
+    const elapsedTime = ((Date.now() - startTime) / 1000).toFixed(1);
+    console.log(`✅ [${level.name}] Completed in ${elapsedTime}s`);
+
+    return {
       level,
       playlist: playlistFile,
       segments,
       playlistContent,
+    };
+  };
+
+  // Process qualities
+  let qualities: MultiQualityHLSOutput["qualities"] = [];
+  const processingStartTime = Date.now();
+
+  // Setup progress tracker
+  let lastReportedProgress = 0;
+  const progressTracker = options?.onProgress
+    ? {
+        qualities: new Map<number, number>(),
+        onUpdate: () => {
+          // Calculate total progress from all qualities
+          let totalProgress = 0;
+          progressTracker.qualities.forEach((progress) => {
+            totalProgress += progress;
+          });
+          
+          const overallProgress = Math.min(Math.round(totalProgress), 100);
+          if (options?.onProgress) {
+            options.onProgress(overallProgress);
+            
+            // Log overall progress every 5%
+            if (overallProgress - lastReportedProgress >= 5) {
+              console.log(`🎯 Overall Progress: ${overallProgress}%`);
+              lastReportedProgress = overallProgress;
+            }
+          }
+        },
+      }
+    : undefined;
+
+  if (useParallel) {
+    console.log("🚀 Processing qualities in PARALLEL mode (faster but uses more memory)");
+    console.log(`📊 Progress will be tracked across ${filteredQualityLevels.length} qualities simultaneously`);
+    
+    // Initialize progress for all qualities
+    if (progressTracker) {
+      filteredQualityLevels.forEach((_, index) => {
+        progressTracker.qualities.set(index, 0);
+      });
+    }
+    
+    // Process all qualities in parallel with progress tracking
+    const qualityPromises = filteredQualityLevels.map(async (level, index) => {
+      const quality = await processQuality(
+        level,
+        index,
+        filteredQualityLevels.length,
+        progressTracker
+      );
+      
+      // Mark this quality as 100% complete (contributes full range)
+      if (progressTracker) {
+        const progressRange = 100 / filteredQualityLevels.length;
+        progressTracker.qualities.set(index, progressRange);
+        progressTracker.onUpdate();
+      }
+      
+      return quality;
     });
 
-    // Report progress
-    if (options?.onProgress) {
-      const progress = Math.round(((i + 1) / qualityLevels.length) * 100);
-      options.onProgress(progress);
+    qualities = await Promise.all(qualityPromises);
+    
+    const totalTime = ((Date.now() - processingStartTime) / 1000).toFixed(1);
+    console.log(`🎉 All qualities processed in ${totalTime}s (PARALLEL mode)`);
+  } else {
+    console.log("⏱️ Processing qualities in SEQUENTIAL mode (slower but stable)");
+    console.log(`📊 Each quality will use ${(100 / filteredQualityLevels.length).toFixed(1)}% of progress`);
+    
+    // Initialize progress for all qualities
+    if (progressTracker) {
+      filteredQualityLevels.forEach((_, index) => {
+        progressTracker.qualities.set(index, 0);
+      });
     }
+    
+    // Process one by one (sequential)
+    for (let i = 0; i < filteredQualityLevels.length; i++) {
+      const level = filteredQualityLevels[i];
+      const quality = await processQuality(
+        level,
+        i,
+        filteredQualityLevels.length,
+        progressTracker
+      );
+      qualities.push(quality);
+
+      // Mark this quality as 100% complete (contributes full range)
+      if (progressTracker) {
+        const progressRange = 100 / filteredQualityLevels.length;
+        progressTracker.qualities.set(i, progressRange);
+        progressTracker.onUpdate();
+      }
+    }
+    
+    const totalTime = ((Date.now() - processingStartTime) / 1000).toFixed(1);
+    console.log(`🎉 All qualities processed in ${totalTime}s (SEQUENTIAL mode)`);
   }
 
   // Create master playlist
@@ -447,23 +702,8 @@ export const resizeVideoToMultiQualityHLS = async (
     type: "application/vnd.apple.mpegurl",
   });
 
-  // Cleanup FFmpeg files
-  await ffmpeg.deleteFile(inputName);
-  for (const quality of qualities) {
-    const outputDir = quality.level.name
-      .toLowerCase()
-      .replace(/[^a-z0-9]/g, "_");
-    try {
-      await ffmpeg.deleteFile(`${outputDir}/playlist.m3u8`);
-      for (const segment of quality.segments) {
-        await ffmpeg.deleteFile(`${outputDir}/${segment.name}`);
-      }
-    } catch (e) {
-      console.warn(`Failed to cleanup ${outputDir}:`, e);
-    }
-  }
-
-  console.log("Multi-quality HLS output ready");
+  // Note: Each FFmpeg instance already cleaned up its own files
+  console.log("✅ Multi-quality HLS output ready");
 
   return {
     masterPlaylist: masterPlaylistFile,
@@ -612,16 +852,16 @@ export const downloadMultiQualityHLSAsZip = async (
   // Add master playlist
   zip.file("master.m3u8", hlsOutput.masterPlaylistBlob);
 
-  // Add each quality
+  // Add each quality (organize in folders for easier structure)
   for (const quality of hlsOutput.qualities) {
     const qualityDir = quality.level.name
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "_");
 
-    // Add playlist
+    // Add playlist (rename to standard name in folder)
     zip.file(`${qualityDir}/playlist.m3u8`, quality.playlist);
 
-    // Add segments
+    // Add segments (keep original names which include quality prefix)
     for (const segment of quality.segments) {
       zip.file(`${qualityDir}/${segment.name}`, segment);
     }

@@ -590,6 +590,51 @@ async function createThumbnail(videoFile) {
 - Hỗ trợ Canvas API
 - Hỗ trợ HTMLVideoElement
 
+### 📱 Hỗ trợ iPhone/iOS
+
+**Video từ iPhone được hỗ trợ đầy đủ!**
+
+iPhone thường quay video với:
+- **Format**: MOV (QuickTime)
+- **Codec**: HEVC (H.265) trên iPhone 7+ hoặc H.264 trên iPhone cũ
+- **Resolution**: 720p, 1080p, 4K (tùy model)
+
+**Khuyến nghị cho video iPhone:**
+
+✅ **Dùng FFmpeg methods** (khuyên dùng):
+```typescript
+import { fastResizeVideo, resizeVideoToHLS, resizeVideoToMultiQualityHLS } from "client-resize-video";
+
+// Video từ iPhone (MOV, HEVC/H.265)
+const iphoneVideo = /* File từ input[type="file"] */;
+
+// Cách 1: Fast resize (nhanh hơn 2-5 lần)
+const resized = await fastResizeVideo(iphoneVideo, {
+  width: 1280,
+  format: "mp4", // Chuyển MOV → MP4
+});
+
+// Cách 2: Multi-quality HLS (tốt nhất cho streaming)
+const hls = await resizeVideoToMultiQualityHLS(
+  iphoneVideo, 
+  HLS_QUALITY_PRESETS.HD,
+  { parallel: true } // Xử lý nhanh hơn
+);
+```
+
+⚠️ **MediaRecorder có giới hạn trên iOS Safari**:
+```typescript
+// Có thể không hoạt động tốt trên iOS Safari < 14.5
+const resized = await resizeVideo(iphoneVideo, {
+  mimeType: MIME_TYPE.webm, // Safari có thể không hỗ trợ WebM output
+});
+```
+
+**Tóm tắt:**
+- ✅ **Input**: Mọi format iPhone (MOV, HEVC, H.264) đều OK
+- ✅ **FFmpeg methods**: Hoạt động hoàn hảo trên mọi iPhone/iPad
+- ⚠️ **MediaRecorder**: Hạn chế trên iOS Safari (khuyên dùng FFmpeg thay thế)
+
 ## ⚡ So sánh Performance
 
 ### Standard vs Fast Resize

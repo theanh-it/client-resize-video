@@ -13,6 +13,10 @@ All notable changes to this project will be documented in this file.
 - `MultiQualityHLSOutput` type with master playlist and quality variants
 - Master playlist generation for HLS adaptive streaming
 - Support for custom quality definitions (resolution, bitrate, etc.)
+- 🎯 **Auto-detect video resolution** - automatically filter out quality levels higher than source
+- ⚡ **Parallel processing mode** - process multiple qualities simultaneously (2-3x faster)
+- 📊 **Advanced progress tracking** - accurate progress for each quality level
+- 📱 **iPhone/iOS support documentation** - full support for MOV, HEVC, H.264 formats
 - ⚡ **Fast Resize** using FFmpeg.wasm - 2-5x faster than MediaRecorder!
 - `fastResizeVideo()` function for fast video processing
 - `fastResizeVideos()` function for batch fast processing

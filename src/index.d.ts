@@ -92,6 +92,8 @@ export declare function resizeVideoToMultiQualityHLS(
   options?: {
     segmentDuration?: number;
     onProgress?: (progress: number) => void;
+    autoFilterQualities?: boolean; // default: true
+    parallel?: boolean; // default: false - process in parallel (faster but uses more memory)
   }
 ): Promise<MultiQualityHLSOutput>;
 
